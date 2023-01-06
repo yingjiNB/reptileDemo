@@ -2,20 +2,38 @@
 import os
 
 import aiohttp
+import aiofiles
 import asyncio
 from lxml import etree
 from faker import Factory
 
 
 async def aio_download(chapters, chapters_href, volume_path, headers, chapter_num):
-    pass
+    time_out = aiohttp.ClientTimeout(total=600)  # 设置超时时间
+    connector = aiohttp.TCPConnector(limit=50)  # 降低并发数量
+
+    async with aiohttp.ClientSession(connector=connector,timeout=time_out) as session:
+        global aiotree
+        try:
+            async with session.get(chapters_href,headers=headers) as res:
+                try:
+                    aiotree = etree.HTML(await res.text(encoding='utf-8'))
+                except Exception as e:
+                    print(e)
+        except Exception as e:
+            print(f'{chapter_num}-出错了，出错信息是{e}')
+        content = ''.join(aiotree.xpath('//div[@class="p"]/p/text()'))
+
+        # 写入数据
+        async with aiofiles.open(f'{volume_path}{chapter_num}-{chapters}.txt',mode='w',encoding='utf-8') as f:
+            await f.write(content)
+            print(f'{chapter_num}-{chapters}.txt,下载完成')
 
 
 async def data_analysis(url, headers):
     async with aiohttp.ClientSession() as session:
         async with await session.get(url=url, headers=headers) as res:
             res_obj = await res.text()
-            # print(res_obj)
             html = etree.HTML(res_obj)
             # 获取卷名称
             volumes = html.xpath('//dl[@class="Volume"]/dt/span[1]/text()')
