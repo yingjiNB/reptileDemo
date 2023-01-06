@@ -12,10 +12,10 @@ async def aio_download(chapters, chapters_href, volume_path, headers, chapter_nu
     time_out = aiohttp.ClientTimeout(total=600)  # 设置超时时间
     connector = aiohttp.TCPConnector(limit=50)  # 降低并发数量
 
-    async with aiohttp.ClientSession(connector=connector,timeout=time_out) as session:
+    async with aiohttp.ClientSession(connector=connector, timeout=time_out) as session:
         global aiotree
         try:
-            async with session.get(chapters_href,headers=headers) as res:
+            async with session.get(chapters_href, headers=headers) as res:
                 try:
                     aiotree = etree.HTML(await res.text(encoding='utf-8'))
                 except Exception as e:
@@ -25,7 +25,7 @@ async def aio_download(chapters, chapters_href, volume_path, headers, chapter_nu
         content = ''.join(aiotree.xpath('//div[@class="p"]/p/text()'))
 
         # 写入数据
-        async with aiofiles.open(f'{volume_path}{chapter_num}-{chapters}.txt',mode='w',encoding='utf-8') as f:
+        async with aiofiles.open(f'{volume_path}{chapter_num}-{chapters}.txt', mode='w', encoding='utf-8') as f:
             await f.write(content)
             print(f'{chapter_num}-{chapters}.txt,下载完成')
 
@@ -39,12 +39,13 @@ async def data_analysis(url, headers):
             volumes = html.xpath('//dl[@class="Volume"]/dt/span[1]/text()')
             # 获取卷名称更新信息
             volumes_info = html.xpath('//dl[@class="Volume"]/dt/span[2]/text()')
-            volumes_list = (volumes[i] + '-' + volumes_info[i] for i in range(0, len(volumes)))
-            global volume_path
-            for volume in volumes_list:
+
+            for i in range(0, len(volumes)):
+                # 创建章节文件夹
+                volume = volumes[i] + '-' + volumes_info[i]
                 volume_path = r".\file\\" + volume + '\\'
                 os.path.exists(volume_path) or os.makedirs(volume_path)
-            for i in range(0, len(volumes)):
+
                 # 获取章节名称
                 chapters = html.xpath(f'//div[@class="Main List"]/dl[{i + 1}]/dd/a/span/text()')
                 chapters = [chapter.replace('\t', '').replace('\n', '') for chapter in chapters]
@@ -58,8 +59,9 @@ async def data_analysis(url, headers):
                 tasks = []
                 chapter_num = 1
                 for chapter_href, chapters in dic.items():
+                    # print(volume_path)
                     tasks.append(
-                        asyncio.create_task(aio_download(chapters, chapters_href, volume_path, headers, chapter_num)))
+                        asyncio.create_task(aio_download(chapters, chapter_href, volume_path, headers, chapter_num)))
                     chapter_num += 1
 
                 await asyncio.wait(tasks)
